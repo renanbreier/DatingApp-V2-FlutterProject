@@ -2,8 +2,19 @@ import 'package:datingapp/screens/login/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-void main() async {
+// 1. Importe os pacotes do Firebase
+import 'package:firebase_core/firebase_core.dart';
+import 'package:datingapp/firebase_options.dart'; // Gerado pelo FlutterFire CLI
+
+Future<void> main() async {
+  // Garante que o Flutter está pronto antes de rodar código nativo
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 2. Adicione esta linha para inicializar o Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
   runApp(const MainApp());
 }
 
