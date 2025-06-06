@@ -14,6 +14,9 @@ val flutterVersionName = localProperties.getProperty("flutter.versionName")
 
 plugins {
     id("com.android.application")
+    // START: FlutterFire Configuration
+    id("com.google.gms.google-services")
+    // END: FlutterFire Configuration
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -37,7 +40,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.datingapp"
-        minSdk = 21
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutterVersionCode
         versionName = flutterVersionName

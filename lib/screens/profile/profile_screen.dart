@@ -1,3 +1,7 @@
+// Importe os pacotes do Firebase
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:flutter/material.dart';
 
 import 'package:datingapp/helpers/navigation.dart';
@@ -25,14 +29,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? selectedOrientation;
   List<String> selectedInterests = [];
 
-  void _submitForm() {
-    if (_formKey.currentState?.validate() ?? false) {
-      navigateTo(context, const MatchScreen());
+  // Adicionamos um estado para o carregamento, sem impactar o layout
+  bool _isLoading = false;
+
+  // ⭐ A LÓGICA DE SALVAR OS DADOS FOI MOVIDA PARA CÁ ⭐
+  Future<void> _submitForm() async {
+    final isFormValid = _formKey.currentState?.validate() ?? false;
+    if (!isFormValid || selectedDate == null || selectedOrientation == null || selectedInterests.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor, preencha todos os campos.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nenhum usuário logado. Por favor, faça login novamente.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    
+    setState(() { _isLoading = true; });
+
+    try {
+      final userData = {
+        'uid': user.uid,
+        'email': user.email,
+        'firstName': firstNameController.text.trim(),
+        'lastName': lastNameController.text.trim(),
+        'birthDate': Timestamp.fromDate(selectedDate!),
+        'orientation': selectedOrientation,
+        'interests': selectedInterests,
+        'profileCreatedAt': FieldValue.serverTimestamp(),
+      };
+
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(userData);
+      
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const MatchScreen()), 
+        (route) => false,
+      );
+
+    } catch (e) {
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ocorreu um erro ao salvar o perfil: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if(mounted) { setState(() { _isLoading = false; }); }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // 👇 O SEU BUILD METHOD ORIGINAL, SEM NENHUMA ALTERAÇÃO NO LAYOUT 👇
     return Scaffold(
       backgroundColor: Colors.grey.shade200,
       body: SafeArea(
@@ -102,7 +156,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onChanged: (interests) => setState(() => selectedInterests = interests),
                     ),
                     const SizedBox(height: 24),
-                    ConfirmButton(onPressed: _submitForm),
+                    
+                    // ⭐ ÚNICA PEQUENA MUDANÇA VISUAL: MOSTRAR O LOADING NO LUGAR DO BOTÃO ⭐
+                    if (_isLoading)
+                      const CircularProgressIndicator()
+                    else
+                      ConfirmButton(onPressed: _submitForm),
                   ],
                 ),
               ),

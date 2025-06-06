@@ -1,3 +1,4 @@
+import 'package:datingapp/screens/email_login/email_login_screen.dart';
 import 'package:flutter/material.dart';
 
 import 'package:datingapp/helpers/navigation.dart';
@@ -34,7 +35,10 @@ class LoginScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {Navigator.of(context).push(
+                            MaterialPageRoute(builder: (ctx) => const EmailLoginScreen()),
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFE94057),
                           minimumSize: const Size(double.infinity, 50),
