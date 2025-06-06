@@ -1,20 +1,22 @@
-// Importe os pacotes do Firebase
+// Imports do Firebase, essenciais para a funcionalidade
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// Imports do Flutter e do seu projeto
 import 'package:flutter/material.dart';
-
-import 'package:datingapp/helpers/navigation.dart';
+import 'package:datingapp/screens/match/match_screen.dart';
 import 'package:datingapp/screens/profile/widgets/profile_photo.dart';
 import 'package:datingapp/screens/profile/widgets/name_input_fields.dart';
 import 'package:datingapp/screens/profile/widgets/birth_date_picker.dart';
 import 'package:datingapp/screens/profile/widgets/orientation_selector.dart';
 import 'package:datingapp/screens/profile/widgets/interests_selector.dart';
 import 'package:datingapp/screens/profile/widgets/confirm_button.dart';
-import 'package:datingapp/screens/match/match_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  // ⭐ ESTA É A PARTE CRÍTICA: O CONSTRUTOR QUE ACEITA 'userData' ⭐
+  final Map<String, dynamic>? userData;
+
+  const ProfileScreen({super.key, this.userData});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -22,17 +24,42 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
-  final firstNameController = TextEditingController(text: "Cauã");
-  final lastNameController = TextEditingController(text: "Moreto");
+  final firstNameController = TextEditingController();
+  final lastNameController = TextEditingController();
 
   DateTime? selectedDate;
   String? selectedOrientation;
   List<String> selectedInterests = [];
-
-  // Adicionamos um estado para o carregamento, sem impactar o layout
   bool _isLoading = false;
 
-  // ⭐ A LÓGICA DE SALVAR OS DADOS FOI MOVIDA PARA CÁ ⭐
+  @override
+  void initState() {
+    super.initState();
+    // Preenche o formulário se estiver em modo de edição
+    if (widget.userData != null) {
+      final data = widget.userData!;
+      firstNameController.text = data['firstName'] ?? '';
+      lastNameController.text = data['lastName'] ?? '';
+      
+      if (data['birthDate'] is Timestamp) {
+        selectedDate = (data['birthDate'] as Timestamp).toDate();
+      }
+      
+      selectedOrientation = data['orientation'];
+      
+      if (data['interests'] is List) {
+        selectedInterests = List<String>.from(data['interests']);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    firstNameController.dispose();
+    lastNameController.dispose();
+    super.dispose();
+  }
+
   Future<void> _submitForm() async {
     final isFormValid = _formKey.currentState?.validate() ?? false;
     if (!isFormValid || selectedDate == null || selectedOrientation == null || selectedInterests.isEmpty) {
@@ -53,7 +80,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() { _isLoading = true; });
 
     try {
-      final userData = {
+      final userDataToSave = {
         'uid': user.uid,
         'email': user.email,
         'firstName': firstNameController.text.trim(),
@@ -61,17 +88,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'birthDate': Timestamp.fromDate(selectedDate!),
         'orientation': selectedOrientation,
         'interests': selectedInterests,
-        'profileCreatedAt': FieldValue.serverTimestamp(),
+        'lastUpdatedAt': FieldValue.serverTimestamp(),
       };
+      
+      if (widget.userData == null) {
+        userDataToSave['profileCreatedAt'] = FieldValue.serverTimestamp();
+      }
 
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(userData);
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set(userDataToSave, SetOptions(merge: true));
       
       if (!mounted) return;
 
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const MatchScreen()), 
-        (route) => false,
+      final successMessage = widget.userData != null 
+        ? 'Perfil atualizado com sucesso!' 
+        : 'Perfil criado com sucesso!';
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(successMessage), backgroundColor: Colors.green),
       );
+
+      if (widget.userData != null) {
+        Navigator.of(context).pop();
+      } else {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const MatchScreen()), 
+          (route) => false,
+        );
+      }
 
     } catch (e) {
       if(mounted) {
@@ -86,7 +129,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 👇 O SEU BUILD METHOD ORIGINAL, SEM NENHUMA ALTERAÇÃO NO LAYOUT 👇
     return Scaffold(
       backgroundColor: Colors.grey.shade200,
       body: SafeArea(
@@ -157,7 +199,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 24),
                     
-                    // ⭐ ÚNICA PEQUENA MUDANÇA VISUAL: MOSTRAR O LOADING NO LUGAR DO BOTÃO ⭐
                     if (_isLoading)
                       const CircularProgressIndicator()
                     else
