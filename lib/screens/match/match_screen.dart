@@ -1,5 +1,7 @@
+// lib/screens/match/match_screen.dart (código atualizado)
 import 'package:datingapp/screens/chat_list/chat_list_screen.dart';
 import 'package:datingapp/screens/settings/settings_screen.dart';
+import 'package:datingapp/services/notification_service.dart'; // Importe o serviço
 import 'package:flutter/material.dart';
 
 class MatchScreen extends StatefulWidget {
@@ -10,6 +12,9 @@ class MatchScreen extends StatefulWidget {
 }
 
 class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStateMixin {
+  // Instancie o serviço de notificação
+  final NotificationService _notificationService = NotificationService();
+
   final List<Map<String, String>> users = [
     {
       'name': 'Peter Parker',
@@ -50,6 +55,9 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
+    // Inicie o serviço de notificação
+    _notificationService.init();
+
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -137,6 +145,9 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
       case 'right':
         endOffset = Offset(size.width, 0);
         icon = 'star';
+        // ⭐ AQUI! Dispare a notificação quando o deslize for para a direita
+        _notificationService.showNotification(
+            'Novo Match! 💘', 'Uau, você acabou de registrar um Match!');
         break;
       case 'up':
         endOffset = Offset(0, -size.height);
@@ -264,8 +275,8 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
-                  Column(
-                    children: const [
+                  const Column(
+                    children: [
                       Text("Explorar", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                       Text("São Paulo, SP", style: TextStyle(color: Colors.grey)),
                     ],
@@ -339,7 +350,7 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
                     child: const Icon(Icons.chat_bubble_outline, color: Colors.grey),
                   ),
                   GestureDetector(
-                      onTap: () => Navigator.pop(context),
+                    onTap: () => Navigator.pop(context),
                     child: const Icon(Icons.person_outline, color: Colors.black),
                   ),
                 ],
