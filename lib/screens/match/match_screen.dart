@@ -1,7 +1,9 @@
-// lib/screens/match/match_screen.dart (código atualizado)
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:datingapp/screens/profile/profile_screen.dart';
 import 'package:datingapp/screens/chat_list/chat_list_screen.dart';
 import 'package:datingapp/screens/settings/settings_screen.dart';
-import 'package:datingapp/services/notification_service.dart'; // Importe o serviço
+import 'package:datingapp/services/notification_service.dart';
 import 'package:flutter/material.dart';
 
 class MatchScreen extends StatefulWidget {
@@ -12,29 +14,32 @@ class MatchScreen extends StatefulWidget {
 }
 
 class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStateMixin {
-  // Instancie o serviço de notificação
   final NotificationService _notificationService = NotificationService();
 
   final List<Map<String, String>> users = [
     {
+      'uid': 'mock_user_1_id',
       'name': 'Peter Parker',
       'age': '23',
       'profession': 'Desenvolvedor',
       'image': 'lib/assets/users/user_1.jpg'
     },
     {
+      'uid': 'mock_user_2_id',
       'name': 'Camila Alves',
       'age': '22',
       'profession': 'Modelo',
       'image': 'lib/assets/users/user_2.jpg'
     },
     {
+      'uid': 'mock_user_3_id',
       'name': 'Tiago Pinheiro',
       'age': '29',
       'profession': 'Designer',
       'image': 'lib/assets/users/user_3.jpg'
     },
     {
+      'uid': 'mock_user_4_id',
       'name': 'Larissa Silva',
       'age': '26',
       'profession': 'Fotografa',
@@ -45,31 +50,75 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
   int _currentIndex = 0;
   Offset _position = Offset.zero;
   double _rotation = 0.0;
-
   late AnimationController _controller;
   late Animation<Offset> _animation;
-
   String? _activeIcon;
   bool _showIcon = false;
+
+  Future<void> _registerLike(String likedUserId) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    
+    final likeData = {
+      'likerUid': currentUser.uid,
+      'likedUid': likedUserId,
+      'timestamp': FieldValue.serverTimestamp(),
+    };
+
+    try {
+      await FirebaseFirestore.instance.collection('likes').add(likeData);
+      print('Like registrado com sucesso no Firestore!');
+    } catch (e) {
+      print('Erro ao registrar like: $e');
+    }
+  }
+
+  Future<void> _navigateToEditProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Usuário não está logado!'), backgroundColor: Colors.red),
+      );
+      return; 
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+
+      if (mounted && doc.exists) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ProfileScreen(userData: doc.data()),
+          ),
+        );
+      } else if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Perfil não encontrado.'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao buscar dados do perfil: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    // Inicie o serviço de notificação
     _notificationService.init();
-
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-
     _controller.addListener(() {
       setState(() {
         _position = _animation.value;
         _rotation = 0.002 * _position.dx;
       });
     });
-
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         _resetPosition();
@@ -145,9 +194,12 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
       case 'right':
         endOffset = Offset(size.width, 0);
         icon = 'star';
-        // ⭐ AQUI! Dispare a notificação quando o deslize for para a direita
         _notificationService.showNotification(
             'Novo Match! 💘', 'Uau, você acabou de registrar um Match!');
+            
+        final likedUserId = users[_currentIndex]['uid']!;
+        _registerLike(likedUserId);
+        
         break;
       case 'up':
         endOffset = Offset(0, -size.height);
@@ -350,8 +402,8 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
                     child: const Icon(Icons.chat_bubble_outline, color: Colors.grey),
                   ),
                   GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.person_outline, color: Colors.black),
+                    onTap: _navigateToEditProfile,
+                    child: const Icon(Icons.person, color: Colors.black),
                   ),
                 ],
               ),
