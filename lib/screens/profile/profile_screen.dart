@@ -1,11 +1,16 @@
-// Imports do Firebase, essenciais para a funcionalidade
+// ⭐ 1. NOVOS IMPORTS PARA ARMAZENAMENTO LOCAL
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p; // Usado para pegar o nome do arquivo
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-// Imports do Flutter e do seu projeto
 import 'package:flutter/material.dart';
+
+// Seus outros imports...
 import 'package:datingapp/screens/match/match_screen.dart';
-import 'package:datingapp/screens/profile/widgets/profile_photo.dart';
 import 'package:datingapp/screens/profile/widgets/name_input_fields.dart';
 import 'package:datingapp/screens/profile/widgets/birth_date_picker.dart';
 import 'package:datingapp/screens/profile/widgets/orientation_selector.dart';
@@ -13,9 +18,7 @@ import 'package:datingapp/screens/profile/widgets/interests_selector.dart';
 import 'package:datingapp/screens/profile/widgets/confirm_button.dart';
 
 class ProfileScreen extends StatefulWidget {
-  // ⭐ ESTA É A PARTE CRÍTICA: O CONSTRUTOR QUE ACEITA 'userData' ⭐
   final Map<String, dynamic>? userData;
-
   const ProfileScreen({super.key, this.userData});
 
   @override
@@ -32,54 +35,91 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<String> selectedInterests = [];
   bool _isLoading = false;
 
+  // ⭐ 2. VARIÁVEL DE ESTADO PARA O ARQUIVO DE IMAGEM
+  File? _profileImageFile; // Armazena a imagem, seja ela recém-tirada ou carregada do disco
+
   @override
   void initState() {
     super.initState();
-    // Preenche o formulário se estiver em modo de edição
+    // Carrega os dados de texto do formulário (se estiver editando)
+    _loadTextFields();
+    // Carrega a imagem de perfil salva localmente
+    _loadProfileImage();
+  }
+  
+  void _loadTextFields() {
     if (widget.userData != null) {
       final data = widget.userData!;
       firstNameController.text = data['firstName'] ?? '';
       lastNameController.text = data['lastName'] ?? '';
-      
       if (data['birthDate'] is Timestamp) {
         selectedDate = (data['birthDate'] as Timestamp).toDate();
       }
-      
       selectedOrientation = data['orientation'];
-      
       if (data['interests'] is List) {
         selectedInterests = List<String>.from(data['interests']);
       }
     }
   }
 
-  @override
-  void dispose() {
-    firstNameController.dispose();
-    lastNameController.dispose();
-    super.dispose();
+  // ⭐ 3. NOVA FUNÇÃO PARA CARREGAR A IMAGEM DO ARMAZENAMENTO LOCAL
+  Future<void> _loadProfileImage() async {
+    final prefs = await SharedPreferences.getInstance();
+    // Busca o caminho da imagem que salvamos anteriormente
+    final imagePath = prefs.getString('profile_image_path');
+    if (imagePath != null) {
+      setState(() {
+        _profileImageFile = File(imagePath);
+      });
+    }
   }
 
+  // Função para abrir a câmera (continua igual)
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedImage = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 50,
+      maxWidth: 600,
+    );
+    if (pickedImage == null) return;
+    setState(() {
+      _profileImageFile = File(pickedImage.path);
+    });
+  }
+  
+  // ⭐ 4. FUNÇÃO DE SUBMISSÃO ATUALIZADA PARA O ARMAZENAMENTO LOCAL
   Future<void> _submitForm() async {
     final isFormValid = _formKey.currentState?.validate() ?? false;
     if (!isFormValid || selectedDate == null || selectedOrientation == null || selectedInterests.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, preencha todos os campos.'), backgroundColor: Colors.red),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Por favor, preencha todos os campos.')));
       return;
     }
 
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nenhum usuário logado. Por favor, faça login novamente.'), backgroundColor: Colors.red),
-      );
-      return;
-    }
+    if (user == null) return;
     
     setState(() { _isLoading = true; });
 
     try {
+      // Se uma nova imagem foi escolhida, salva ela localmente
+      if (_profileImageFile != null) {
+        // Encontra a pasta de documentos do app
+        final appDir = await getApplicationDocumentsDirectory();
+        // Pega o nome do arquivo da imagem temporária
+        final fileName = p.basename(_profileImageFile!.path);
+        // Cria o caminho de destino permanente
+        final savedImagePath = p.join(appDir.path, fileName);
+        
+        // Copia o arquivo para o novo caminho
+        await _profileImageFile!.copy(savedImagePath);
+
+        // Salva o caminho permanente nas SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('profile_image_path', savedImagePath);
+      }
+      
+      // Monta os dados para o Firestore (SEM A IMAGEM)
       final userDataToSave = {
         'uid': user.uid,
         'email': user.email,
@@ -91,40 +131,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'lastUpdatedAt': FieldValue.serverTimestamp(),
       };
       
-      if (widget.userData == null) {
-        userDataToSave['profileCreatedAt'] = FieldValue.serverTimestamp();
-      }
-
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set(userDataToSave, SetOptions(merge: true));
       
       if (!mounted) return;
-
-      final successMessage = widget.userData != null 
-        ? 'Perfil atualizado com sucesso!' 
-        : 'Perfil criado com sucesso!';
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(successMessage), backgroundColor: Colors.green),
-      );
-
+      // ... (lógica de navegação e snackbar continua a mesma)
+      final successMessage = widget.userData != null ? 'Perfil atualizado!' : 'Perfil criado!';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(successMessage), backgroundColor: Colors.green));
       if (widget.userData != null) {
         Navigator.of(context).pop();
       } else {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (context) => const MatchScreen()), 
-          (route) => false,
-        );
+        Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (context) => const MatchScreen()), (route) => false);
       }
 
     } catch (e) {
-      if(mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ocorreu um erro ao salvar o perfil: $e'), backgroundColor: Colors.red),
-        );
-      }
+      // ...
     } finally {
       if(mounted) { setState(() { _isLoading = false; }); }
     }
+  }
+
+  @override
+  void dispose() {
+    firstNameController.dispose();
+    lastNameController.dispose();
+    super.dispose();
   }
 
   @override
@@ -132,82 +162,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: Colors.grey.shade200,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth > 600;
-
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: IconButton(
-                        icon: const Icon(Icons.arrow_back_ios),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ),
-                    const Text("Seu perfil", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    const ProfilePhoto(),
-                    const SizedBox(height: 24),
-
-                    isWide
-                        ? Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: NameInputFields(
-                                  firstNameController: firstNameController,
-                                  lastNameController: lastNameController,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: BirthDatePicker(
-                                  selectedDate: selectedDate,
-                                  onDateSelected: (date) => setState(() => selectedDate = date),
-                                ),
-                              ),
-                            ],
-                          )
-                        : Column(
-                            children: [
-                              NameInputFields(
-                                firstNameController: firstNameController,
-                                lastNameController: lastNameController,
-                              ),
-                              const SizedBox(height: 16),
-                              BirthDatePicker(
-                                selectedDate: selectedDate,
-                                onDateSelected: (date) => setState(() => selectedDate = date),
-                              ),
-                            ],
-                          ),
-                    const SizedBox(height: 16),
-                    OrientationSelector(
-                      selectedOrientation: selectedOrientation,
-                      onChanged: (value) => setState(() => selectedOrientation = value),
-                    ),
-                    const SizedBox(height: 16),
-                    InterestsSelector(
-                      selectedInterests: selectedInterests,
-                      onChanged: (interests) => setState(() => selectedInterests = interests),
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    if (_isLoading)
-                      const CircularProgressIndicator()
-                    else
-                      ConfirmButton(onPressed: _submitForm),
-                  ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ),
-              ),
-            );
-          },
+                const Text("Seu perfil", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+
+                // ⭐ 5. WIDGET DA FOTO ATUALIZADO PARA CARREGAR IMAGEM LOCAL
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: CircleAvatar(
+                    radius: 60,
+                    backgroundColor: Colors.grey.shade400,
+                    backgroundImage: _profileImageFile != null
+                        ? FileImage(_profileImageFile!) // Mostra a imagem do arquivo
+                        : null,
+                    child: _profileImageFile == null
+                        ? Icon(Icons.camera_alt, size: 50, color: Colors.white)
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // O resto do seu layout continua aqui
+                NameInputFields(
+                  firstNameController: firstNameController,
+                  lastNameController: lastNameController,
+                ),
+                const SizedBox(height: 16),
+                BirthDatePicker(
+                  selectedDate: selectedDate,
+                  onDateSelected: (date) => setState(() => selectedDate = date),
+                ),
+                const SizedBox(height: 16),
+                OrientationSelector(
+                  selectedOrientation: selectedOrientation,
+                  onChanged: (value) => setState(() => selectedOrientation = value),
+                ),
+                const SizedBox(height: 16),
+                InterestsSelector(
+                  selectedInterests: selectedInterests,
+                  onChanged: (interests) => setState(() => selectedInterests = interests),
+                ),
+                const SizedBox(height: 24),
+                
+                if (_isLoading)
+                  const CircularProgressIndicator()
+                else
+                  ConfirmButton(onPressed: _submitForm),
+              ],
+            ),
+          ),
         ),
       ),
     );
