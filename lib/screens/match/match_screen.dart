@@ -15,38 +15,12 @@ class MatchScreen extends StatefulWidget {
 
 class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStateMixin {
   final NotificationService _notificationService = NotificationService();
-
   final List<Map<String, String>> users = [
-    {
-      'uid': 'mock_user_1_id',
-      'name': 'Peter Parker',
-      'age': '23',
-      'profession': 'Desenvolvedor',
-      'image': 'lib/assets/users/user_1.jpg'
-    },
-    {
-      'uid': 'mock_user_2_id',
-      'name': 'Camila Alves',
-      'age': '22',
-      'profession': 'Modelo',
-      'image': 'lib/assets/users/user_2.jpg'
-    },
-    {
-      'uid': 'mock_user_3_id',
-      'name': 'Tiago Pinheiro',
-      'age': '29',
-      'profession': 'Designer',
-      'image': 'lib/assets/users/user_3.jpg'
-    },
-    {
-      'uid': 'mock_user_4_id',
-      'name': 'Larissa Silva',
-      'age': '26',
-      'profession': 'Fotografa',
-      'image': 'lib/assets/users/user_4.jpg'
-    },
+    {'uid': 'user_1_id', 'name': 'Peter Parker', 'age': '23', 'profession': 'Desenvolvedor', 'image': 'lib/assets/users/user_1.jpg'},
+    {'uid': 'user_2_id', 'name': 'Camila Alves', 'age': '22', 'profession': 'Modelo', 'image': 'lib/assets/users/user_2.jpg'},
+    {'uid': 'user_3_id', 'name': 'Tiago Pinheiro', 'age': '29', 'profession': 'Designer', 'image': 'lib/assets/users/user_3.jpg'},
+    {'uid': 'user_4_id', 'name': 'Larissa Silva', 'age': '26', 'profession': 'Fotografa', 'image': 'lib/assets/users/user_4.jpg'},
   ];
-
   int _currentIndex = 0;
   Offset _position = Offset.zero;
   double _rotation = 0.0;
@@ -54,6 +28,27 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
   late Animation<Offset> _animation;
   String? _activeIcon;
   bool _showIcon = false;
+  
+  Future<void> _createChatRoom(String otherUserId) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    // Gera um ID de chat consistente
+    final chatId = (currentUser.uid.compareTo(otherUserId) > 0)
+        ? '${currentUser.uid}-$otherUserId'
+        : '$otherUserId-${currentUser.uid}';
+
+    final chatData = {
+      'users': [currentUser.uid, otherUserId],
+      'lastMessage': '', // Começa sem última mensagem
+      'lastMessageTimestamp': FieldValue.serverTimestamp(),
+    };
+
+    // Cria o documento de chat para que ele apareça na ChatListScreen
+    // O 'merge: true' garante que, se o chat já existir, ele não será sobrescrito
+    await FirebaseFirestore.instance.collection('chats').doc(chatId).set(chatData, SetOptions(merge: true));
+    print('Sala de chat criada/verificada com o ID: $chatId');
+  }
 
   Future<void> _registerLike(String likedUserId) async {
     final currentUser = FirebaseAuth.instance.currentUser;
@@ -64,45 +59,9 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
       'likedUid': likedUserId,
       'timestamp': FieldValue.serverTimestamp(),
     };
+    await FirebaseFirestore.instance.collection('likes').add(likeData);
 
-    try {
-      await FirebaseFirestore.instance.collection('likes').add(likeData);
-      print('Like registrado com sucesso no Firestore!');
-    } catch (e) {
-      print('Erro ao registrar like: $e');
-    }
-  }
-
-  Future<void> _navigateToEditProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Usuário não está logado!'), backgroundColor: Colors.red),
-      );
-      return; 
-    }
-
-    try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-
-      if (mounted && doc.exists) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => ProfileScreen(userData: doc.data()),
-          ),
-        );
-      } else if (mounted) {
-         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Perfil não encontrado.'), backgroundColor: Colors.red),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao buscar dados do perfil: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
+    await _createChatRoom(likedUserId);
   }
 
   @override
@@ -113,72 +72,28 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _controller.addListener(() {
-      setState(() {
-        _position = _animation.value;
-        _rotation = 0.002 * _position.dx;
-      });
-    });
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _resetPosition();
-      }
-    });
+    _controller.addListener(() { setState(() { _position = _animation.value; _rotation = 0.002 * _position.dx; }); });
+    _controller.addStatusListener((status) { if (status == AnimationStatus.completed) { _resetPosition(); } });
   }
-
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _precacheNextImage();
-  }
-
-  void _precacheNextImage() {
-    if (_currentIndex + 1 < users.length) {
-      precacheImage(AssetImage(users[_currentIndex + 1]['image']!), context);
-    }
-  }
-
+  void didChangeDependencies() { super.didChangeDependencies(); _precacheNextImage(); }
+  void _precacheNextImage() { if (_currentIndex + 1 < users.length) { precacheImage(AssetImage(users[_currentIndex + 1]['image']!), context); } }
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _resetPosition() {
-    setState(() {
-      _position = Offset.zero;
-      _rotation = 0;
-      _showIcon = false;
-      if (_currentIndex < users.length - 1) {
-        _currentIndex++;
-      } else {
-        _currentIndex = 0;
+  void dispose() { _controller.dispose(); super.dispose(); }
+  void _resetPosition() { setState(() { _position = Offset.zero; _rotation = 0; _showIcon = false; if (_currentIndex < users.length - 1) { _currentIndex++; } else { _currentIndex = 0; } }); _precacheNextImage(); }
+  void _onPanUpdate(DragUpdateDetails details) { setState(() { _position += details.delta; _rotation = 0.002 * _position.dx; }); }
+  void _onPanEnd(DragEndDetails details) { final screenWidth = MediaQuery.of(context).size.width; final threshold = screenWidth * 0.3; if (_position.dx > threshold) { _triggerSwipe(direction: 'right'); } else if (_position.dx < -threshold) { _triggerSwipe(direction: 'left'); } else { setState(() { _position = Offset.zero; _rotation = 0; }); } }
+  Future<void> _navigateToEditProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) { return; }
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (mounted && doc.exists) {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (context) => ProfileScreen(userData: doc.data())),
+        );
       }
-    });
-    _precacheNextImage();
-  }
-
-  void _onPanUpdate(DragUpdateDetails details) {
-    setState(() {
-      _position += details.delta;
-      _rotation = 0.002 * _position.dx;
-    });
-  }
-
-  void _onPanEnd(DragEndDetails details) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final threshold = screenWidth * 0.3;
-
-    if (_position.dx > threshold) {
-      _triggerSwipe(direction: 'right');
-    } else if (_position.dx < -threshold) {
-      _triggerSwipe(direction: 'left');
-    } else {
-      setState(() {
-        _position = Offset.zero;
-        _rotation = 0;
-      });
-    }
+    } catch (e) { print(e); }
   }
 
   void _triggerSwipe({required String direction}) {
@@ -191,15 +106,12 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
         endOffset = Offset(-size.width, 0);
         icon = 'clear';
         break;
-      case 'right':
+      case 'right': // Ação de Like/Match
         endOffset = Offset(size.width, 0);
         icon = 'star';
-        _notificationService.showNotification(
-            'Novo Match! 💘', 'Uau, você acabou de registrar um Match!');
-            
+        _notificationService.showNotification('Match Registrado!', 'Você curtiu um novo perfil.');
         final likedUserId = users[_currentIndex]['uid']!;
         _registerLike(likedUserId);
-        
         break;
       case 'up':
         endOffset = Offset(0, -size.height);
@@ -209,105 +121,11 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
         endOffset = Offset.zero;
     }
 
-    setState(() {
-      _showIcon = true;
-      _activeIcon = icon;
-    });
-
-    _animation = Tween<Offset>(
-      begin: _position,
-      end: endOffset,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-
+    setState(() { _showIcon = true; _activeIcon = icon; });
+    _animation = Tween<Offset>(begin: _position, end: endOffset).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
     _controller.forward(from: 0);
   }
-
-  Widget _buildAnimatedIcon() {
-    IconData? icon;
-    Color color;
-
-    switch (_activeIcon) {
-      case 'clear':
-        icon = Icons.clear;
-        color = Colors.orange;
-        break;
-      case 'star':
-        icon = Icons.star;
-        color = Colors.purple;
-        break;
-      case 'favorite':
-        icon = Icons.favorite;
-        color = Colors.pink;
-        break;
-      default:
-        return const SizedBox();
-    }
-
-    return AnimatedOpacity(
-      opacity: _showIcon ? 1 : 0,
-      duration: const Duration(milliseconds: 200),
-      child: Center(
-        child: Icon(icon, size: 100, color: color.withOpacity(0.8)),
-      ),
-    );
-  }
-
-  Widget _buildCard(Map<String, String> user) {
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.85,
-      height: MediaQuery.of(context).size.height * 0.6,
-      margin: const EdgeInsets.only(top: 24),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        image: DecorationImage(
-          image: AssetImage(user['image']!),
-          fit: BoxFit.cover,
-        ),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [Colors.black.withAlpha(178), Colors.transparent],
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Align(
-            alignment: Alignment.bottomLeft,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("${user['name']}, ${user['age']}",
-                    style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(user['profession']!, style: const TextStyle(color: Colors.white70)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton(IconData icon, Color color, VoidCallback onPressed, {double size = 48}) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        height: size,
-        width: size,
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: color, size: size * 0.5),
-      ),
-    );
-  }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -410,6 +228,63 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedIcon() {
+    IconData? icon;
+    Color color;
+    switch (_activeIcon) {
+      case 'clear': icon = Icons.clear; color = Colors.orange; break;
+      case 'star': icon = Icons.star; color = Colors.purple; break;
+      case 'favorite': icon = Icons.favorite; color = Colors.pink; break;
+      default: return const SizedBox();
+    }
+    return AnimatedOpacity(opacity: _showIcon ? 1 : 0, duration: const Duration(milliseconds: 200), child: Center(child: Icon(icon, size: 100, color: color.withOpacity(0.8))));
+  }
+
+  Widget _buildCard(Map<String, String> user) {
+    return Container(
+      width: MediaQuery.of(context).size.width * 0.85,
+      height: MediaQuery.of(context).size.height * 0.6,
+      margin: const EdgeInsets.only(top: 24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        image: DecorationImage(image: AssetImage(user['image']!), fit: BoxFit.cover),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withAlpha(178), Colors.transparent]),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Align(
+            alignment: Alignment.bottomLeft,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("${user['name']}, ${user['age']}", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(user['profession']!, style: const TextStyle(color: Colors.white70)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(IconData icon, Color color, VoidCallback onPressed, {double size = 48}) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        height: size,
+        width: size,
+        decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+        child: Icon(icon, color: color, size: size * 0.5),
       ),
     );
   }
