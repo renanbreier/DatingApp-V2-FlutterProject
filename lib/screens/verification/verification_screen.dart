@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:datingapp/controllers/verification_controller.dart';
-import 'package:datingapp/widgets/back_arrow.dart';
 import 'package:datingapp/screens/verification/widgets/verification_digit_box.dart';
 import 'package:datingapp/screens/verification/widgets/verification_keyboard.dart';
 
@@ -17,7 +16,12 @@ class VerificationScreen extends StatelessWidget {
       create: (_) => VerificationController(),
       child: Scaffold(
         backgroundColor: Colors.white,
-        appBar: const BackArrow(),
+        appBar: AppBar(
+          leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
+          onPressed: () => Navigator.of(context).pop(),
+          ),
+        ),
         body: SafeArea(
           child: Consumer<VerificationController>(
             builder: (context, controller, _) {
