@@ -81,11 +81,9 @@ class _IndividualChatScreenState extends State<IndividualChatScreen> {
     );
   }
 
-  // ⭐ 1. A FUNÇÃO AGORA USA 'showDialog' E CHAMA UM WIDGET CUSTOMIZADO
   void _showOptionsDialog() {
     showDialog(
       context: context,
-      // barrierDismissible: false, // Opcional: impede que o diálogo feche ao tocar fora
       builder: (BuildContext context) {
         return Dialog(
           backgroundColor: Colors.transparent,
@@ -96,7 +94,6 @@ class _IndividualChatScreenState extends State<IndividualChatScreen> {
     );
   }
 
-  // ⭐ 2. NOVO WIDGET PARA CONSTRUIR O CONTEÚDO DO DIÁLOGO DE OPÇÕES
   Widget _buildOptionsContent(BuildContext dialogContext) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -140,7 +137,6 @@ class _IndividualChatScreenState extends State<IndividualChatScreen> {
     );
   }
 
-  // ⭐ 3. WIDGET AUXILIAR PARA CRIAR OS BOTÕES DO DIÁLOGO
   Widget _buildOptionButton({required String text, required VoidCallback onPressed}) {
     return SizedBox(
       width: double.infinity,
