@@ -164,7 +164,7 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
     String? icon;
     switch (direction) {
       case 'left': endOffset = Offset(-size.width, 0); icon = 'clear'; break;
-      case 'right': endOffset = Offset(size.width, 0); icon = 'star'; _notificationService.showNotification('Match Registrado!', 'Você curtiu um novo perfil.'); _registerLike(likedUserId); break;
+      case 'right': endOffset = Offset(size.width, 0); icon = 'star'; _notificationService.showNotification('Novo Match! 💘', 'Uau, você acabou de registrar um Match!'); _registerLike(likedUserId); break;
       case 'up': endOffset = Offset(0, -size.height); icon = 'favorite'; break;
       default: endOffset = Offset.zero;
     }
