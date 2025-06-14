@@ -15,9 +15,10 @@ class PhoneNumberScreen extends StatelessWidget {
       backgroundColor: Colors.white,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.black),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        backgroundColor: Colors.white,
       ),
       body: SafeArea(
         child: Center(
