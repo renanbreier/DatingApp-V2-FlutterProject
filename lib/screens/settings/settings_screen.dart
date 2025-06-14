@@ -1,6 +1,6 @@
+import 'package:datingapp/screens/preferences_screen/preferences_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:datingapp/screens/login/login_screen.dart';
-
 import 'package:flutter/material.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -35,33 +35,24 @@ class SettingsScreen extends StatelessWidget {
         child: GridView.builder(
           itemCount: settings.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            childAspectRatio: 1.2,
+            crossAxisCount: 2, mainAxisSpacing: 16, crossAxisSpacing: 16, childAspectRatio: 1.2,
           ),
           itemBuilder: (context, index) {
             final item = settings[index];
             final bool isLogoutButton = item['isLogout'] ?? false;
-
             return InkWell(
               onTap: () async {
-                
-                // Lógica para o botão "Sair"
                 if (isLogoutButton) {
-                  // Primeiro, desconecta o usuário do Firebase
                   await FirebaseAuth.instance.signOut();
-
-                  // Após o logout, verifica se o widget ainda está na tela antes de navegar
                   if (!context.mounted) return;
-
-                  // Leva para a tela de login e remove todas as outras telas da pilha
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    (route) => false,
+                    MaterialPageRoute(builder: (context) => const LoginScreen()), (route) => false,
+                  );
+                } else if (item['label'] == 'Preferências') {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (ctx) => const PreferencesScreen()),
                   );
                 } else {
-                  // Aqui você pode adicionar a navegação para as outras telas no futuro
                   print('Clicou em: ${item['label']}');
                 }
               },
@@ -75,12 +66,7 @@ class SettingsScreen extends StatelessWidget {
                     CircleAvatar(
                       radius: 30,
                       backgroundColor: isLogoutButton ? Colors.red.withOpacity(0.1) : Colors.grey.shade200,
-                      child: Icon(
-                        item['icon'], 
-                        size: 30, 
-                        // Cor do ícone muda se for o botão de logout
-                        color: isLogoutButton ? Colors.red : Colors.black87
-                      ),
+                      child: Icon(item['icon'], size: 30, color: isLogoutButton ? Colors.red : Colors.black87),
                     ),
                     const SizedBox(height: 8),
                     Text(item['label'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
