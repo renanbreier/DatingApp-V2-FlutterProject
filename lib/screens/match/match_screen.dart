@@ -15,12 +15,11 @@ class MatchScreen extends StatefulWidget {
 
 class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStateMixin {
   final NotificationService _notificationService = NotificationService();
-  final List<Map<String, String>> users = [
-    {'uid': 'user_1_id', 'name': 'Peter Parker', 'age': '23', 'profession': 'Desenvolvedor', 'image': 'lib/assets/users/user_1.jpg'},
-    {'uid': 'user_2_id', 'name': 'Camila Alves', 'age': '22', 'profession': 'Modelo', 'image': 'lib/assets/users/user_2.jpg'},
-    {'uid': 'user_3_id', 'name': 'Tiago Pinheiro', 'age': '29', 'profession': 'Designer', 'image': 'lib/assets/users/user_3.jpg'},
-    {'uid': 'user_4_id', 'name': 'Larissa Silva', 'age': '26', 'profession': 'Fotografa', 'image': 'lib/assets/users/user_4.jpg'},
-  ];
+  
+  // A lista 'users' foi substituída por variáveis de estado
+  List<Map<String, dynamic>> _users = [];
+  bool _isLoading = true;
+
   int _currentIndex = 0;
   Offset _position = Offset.zero;
   double _rotation = 0.0;
@@ -29,23 +28,68 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
   String? _activeIcon;
   bool _showIcon = false;
   
+  @override
+  void initState() {
+    super.initState();
+    _fetchUsers(); // Busca os usuários ao iniciar a tela
+    
+    _notificationService.init();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _controller.addListener(() { setState(() { _position = _animation.value; _rotation = 0.002 * _position.dx; }); });
+    _controller.addStatusListener((status) { if (status == AnimationStatus.completed) { _resetPosition(); } });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchUsers() async {
+    try {
+      const List<String> userIdsToFetch = [ 'user_1_id', 'user_2_id', 'user_3_id', 'user_4_id' ];
+      
+      final usersQuery = await FirebaseFirestore.instance
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: userIdsToFetch)
+          .get();
+      
+      final fetchedUsers = usersQuery.docs.map((doc) => doc.data()).toList();
+
+      if (mounted) {
+        setState(() {
+          _users = fetchedUsers;
+          _isLoading = false;
+        });
+        _precacheNextImage();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() { _isLoading = false; });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erro ao carregar perfis: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Future<void> _createChatRoom(String otherUserId) async {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) return;
 
-    // Gera um ID de chat consistente
     final chatId = (currentUser.uid.compareTo(otherUserId) > 0)
         ? '${currentUser.uid}-$otherUserId'
         : '$otherUserId-${currentUser.uid}';
 
     final chatData = {
       'users': [currentUser.uid, otherUserId],
-      'lastMessage': '', // Começa sem última mensagem
+      'lastMessage': '',
       'lastMessageTimestamp': FieldValue.serverTimestamp(),
     };
-
-    // Cria o documento de chat para que ele apareça na ChatListScreen
-    // O 'merge: true' garante que, se o chat já existir, ele não será sobrescrito
+    
     await FirebaseFirestore.instance.collection('chats').doc(chatId).set(chatData, SetOptions(merge: true));
     print('Sala de chat criada/verificada com o ID: $chatId');
   }
@@ -60,29 +104,54 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
       'timestamp': FieldValue.serverTimestamp(),
     };
     await FirebaseFirestore.instance.collection('likes').add(likeData);
-
     await _createChatRoom(likedUserId);
   }
 
   @override
-  void initState() {
-    super.initState();
-    _notificationService.init();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _controller.addListener(() { setState(() { _position = _animation.value; _rotation = 0.002 * _position.dx; }); });
-    _controller.addStatusListener((status) { if (status == AnimationStatus.completed) { _resetPosition(); } });
-  }
-  @override
   void didChangeDependencies() { super.didChangeDependencies(); _precacheNextImage(); }
-  void _precacheNextImage() { if (_currentIndex + 1 < users.length) { precacheImage(AssetImage(users[_currentIndex + 1]['image']!), context); } }
-  @override
-  void dispose() { _controller.dispose(); super.dispose(); }
-  void _resetPosition() { setState(() { _position = Offset.zero; _rotation = 0; _showIcon = false; if (_currentIndex < users.length - 1) { _currentIndex++; } else { _currentIndex = 0; } }); _precacheNextImage(); }
+  
+  void _precacheNextImage() {
+    if (!_isLoading && _currentIndex + 1 < _users.length) {
+      // Ajustado para buscar 'profileImageUrl' do mapa dinâmico
+      final nextUserImage = _users[_currentIndex + 1]['profileImageUrl'] as String?;
+      if (nextUserImage != null && nextUserImage.isNotEmpty) {
+        final imageProvider = nextUserImage.startsWith('http')
+            ? NetworkImage(nextUserImage)
+            : AssetImage(nextUserImage) as ImageProvider;
+        precacheImage(imageProvider, context);
+      }
+    }
+  }
+  
+  void _resetPosition() { 
+    setState(() { 
+      _position = Offset.zero; 
+      _rotation = 0; 
+      _showIcon = false; 
+      // Ajustado para usar o tamanho da lista _users
+      if (_currentIndex < _users.length - 1) { 
+        _currentIndex++; 
+      } else { 
+        _currentIndex = 0; 
+      } 
+    }); 
+    _precacheNextImage(); 
+  }
+
   void _onPanUpdate(DragUpdateDetails details) { setState(() { _position += details.delta; _rotation = 0.002 * _position.dx; }); }
-  void _onPanEnd(DragEndDetails details) { final screenWidth = MediaQuery.of(context).size.width; final threshold = screenWidth * 0.3; if (_position.dx > threshold) { _triggerSwipe(direction: 'right'); } else if (_position.dx < -threshold) { _triggerSwipe(direction: 'left'); } else { setState(() { _position = Offset.zero; _rotation = 0; }); } }
+  
+  void _onPanEnd(DragEndDetails details) { 
+    final screenWidth = MediaQuery.of(context).size.width; 
+    final threshold = screenWidth * 0.3; 
+    if (_position.dx > threshold) { 
+      _triggerSwipe(direction: 'right'); 
+    } else if (_position.dx < -threshold) { 
+      _triggerSwipe(direction: 'left'); 
+    } else { 
+      setState(() { _position = Offset.zero; _rotation = 0; }); 
+    } 
+  }
+
   Future<void> _navigateToEditProfile() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) { return; }
@@ -97,6 +166,9 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
   }
 
   void _triggerSwipe({required String direction}) {
+    // Adicionada verificação para evitar erro se a lista estiver vazia
+    if (_users.isEmpty) return;
+
     final size = MediaQuery.of(context).size;
     Offset endOffset;
     String? icon;
@@ -110,7 +182,8 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
         endOffset = Offset(size.width, 0);
         icon = 'star';
         _notificationService.showNotification('Novo Match! 💘', 'Uau, você acabou de registrar um Match!');
-        final likedUserId = users[_currentIndex]['uid']!;
+        // Ajustado para pegar o 'uid' do mapa dinâmico _users
+        final likedUserId = _users[_currentIndex]['uid'] as String;
         _registerLike(likedUserId);
         break;
       case 'up':
@@ -161,30 +234,36 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
               ),
             ),
             Expanded(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (_controller.isDismissed && _currentIndex + 1 < users.length)
-                    _buildCard(users[_currentIndex + 1]),
-                  GestureDetector(
-                    onPanUpdate: _onPanUpdate,
-                    onPanEnd: _onPanEnd,
-                    child: Transform.translate(
-                      offset: _position,
-                      child: Transform.rotate(
-                        angle: _rotation,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            _buildCard(users[_currentIndex]),
-                            _buildAnimatedIcon(),
-                          ],
+              // Lógica condicional para mostrar o loading ou os cards
+              child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _users.isEmpty
+                  ? const Center(child: Text("Nenhum perfil para mostrar."))
+                  : Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        if (_controller.isDismissed && _currentIndex + 1 < _users.length)
+                          _buildCard(_users[_currentIndex + 1]),
+                        GestureDetector(
+                          onPanUpdate: _onPanUpdate,
+                          onPanEnd: _onPanEnd,
+                          child: Transform.translate(
+                            offset: _position,
+                            child: Transform.rotate(
+                              angle: _rotation,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Garante que o índice não estoure se a lista estiver carregando
+                                  if (_users.isNotEmpty) _buildCard(_users[_currentIndex]),
+                                  _buildAnimatedIcon(),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24.0),
@@ -241,14 +320,34 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
     return AnimatedOpacity(opacity: _showIcon ? 1 : 0, duration: const Duration(milliseconds: 200), child: Center(child: Icon(icon, size: 100, color: color.withOpacity(0.8))));
   }
 
-  Widget _buildCard(Map<String, String> user) {
+  // A assinatura do método foi alterada para aceitar dados dinâmicos
+  Widget _buildCard(Map<String, dynamic> user) {
+    // Lógica para calcular a idade a partir do Timestamp do Firebase
+    String age = '';
+    if (user['birthDate'] is Timestamp) {
+      final birthDate = (user['birthDate'] as Timestamp).toDate();
+      final today = DateTime.now();
+      age = (today.year - birthDate.year - ((today.month > birthDate.month || (today.month == birthDate.month && today.day >= birthDate.day)) ? 0 : 1)).toString();
+    }
+
+    final imageUrl = user['profileImageUrl'] as String?;
+
     return Container(
       width: MediaQuery.of(context).size.width * 0.85,
       height: MediaQuery.of(context).size.height * 0.6,
       margin: const EdgeInsets.only(top: 24),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        image: DecorationImage(image: AssetImage(user['image']!), fit: BoxFit.cover),
+        // Lida com imagens da internet (http) ou assets locais
+        image: imageUrl != null && imageUrl.isNotEmpty
+          ? DecorationImage(
+              image: imageUrl.startsWith('http') 
+                ? NetworkImage(imageUrl) 
+                : AssetImage(imageUrl) as ImageProvider,
+              fit: BoxFit.cover,
+            )
+          : null,
+        color: imageUrl == null || imageUrl.isEmpty ? Colors.grey.shade300 : null,
       ),
       child: Container(
         decoration: BoxDecoration(
@@ -263,9 +362,15 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("${user['name']}, ${user['age']}", style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(
+                  // Usa os dados dinâmicos do Firebase
+                  "${user['firstName'] ?? ''}, $age", 
+                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)
+                ),
                 const SizedBox(height: 4),
-                Text(user['profession']!, style: const TextStyle(color: Colors.white70)),
+                // Exemplo de como acessar outro campo, se existir
+                if (user['profession'] != null)
+                  Text(user['profession'] as String, style: const TextStyle(color: Colors.white70)),
               ],
             ),
           ),
