@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:datingapp/screens/match/match_screen.dart';
-import 'package:datingapp/screens/profile/profile_screen.dart'; // Supondo que você tenha um profile_screen.dart
+import 'package:datingapp/screens/profile/profile_screen.dart';
 
 class EmailLoginScreen extends StatefulWidget {
   const EmailLoginScreen({super.key});
@@ -16,7 +16,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   
-  // Gerenciamento de estado simples
+  // Gerenciamento de estado
   bool _isLoginMode = true; // Alterna entre a tela de Login e Cadastro
   bool _isLoading = false;  // Para mostrar um indicador de carregamento
   String _errorMessage = '';
@@ -61,8 +61,6 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
         );
       }
       
-      // Se chegou aqui, o login/cadastro foi um sucesso!
-      // Agora, vamos para a lógica de navegação.
       if (mounted && userCredential.user != null) {
         _navigateAfterLogin(userCredential.user!);
       }
@@ -98,7 +96,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
     }
   }
 
-  // LÓGICA DE NAVEGAÇÃO PÓS-LOGIN
+  // Lógica de navegação pós-login
   Future<void> _navigateAfterLogin(User user) async {
     // 1. Pega o UID do usuário que acabou de logar
     final String uid = user.uid;
@@ -106,21 +104,19 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
     // 2. Busca no Firestore por um documento com esse UID na coleção 'users'
     final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
     
-    // Garante que o widget ainda está na tela antes de navegar
     if (!mounted) return;
     
     // 3. Verifica se o documento de perfil existe
     if (doc.exists) {
-      // Se existe, o perfil está completo. Vá para a MatchScreen!
+      // Se existe e o perfil está completo segue para a MatchScreen!
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const MatchScreen()),
         (route) => false, // Remove todas as rotas anteriores
       );
     } else {
-      // Se não existe, o usuário precisa completar o perfil. Vá para a ProfileScreen!
-      // TODO: Certifique-se que você tenha um arquivo profile_screen.dart
+      // Se não existe, segue para a ProfileScreen!
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const ProfileScreen()), // Você precisará criar essa tela
+        MaterialPageRoute(builder: (context) => const ProfileScreen()),
         (route) => false, // Remove todas as rotas anteriores
       );
     }
@@ -138,7 +134,11 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isLoginMode ? 'Login com E-mail' : 'Cadastro'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(_isLoginMode ? 'Login' : 'Cadastre-se', style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFFE94057),
       ),
       body: Center(
@@ -175,7 +175,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: Text(
-                    _isLoginMode ? 'ENTRAR' : 'CADASTRAR',
+                    _isLoginMode ? 'Entrar' : 'Cadastrar',
                     style: const TextStyle(color: Colors.white),
                   ),
                 ),

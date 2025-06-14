@@ -18,6 +18,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('Conversas', style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFFE94057),
         elevation: 1,

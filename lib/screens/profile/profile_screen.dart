@@ -1,4 +1,4 @@
-// ⭐ 1. NOVOS IMPORTS PARA ARMAZENAMENTO LOCAL
+// Imports utilizados para armazenamento local da foto de perfil
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p; // Usado para pegar o nome do arquivo
@@ -8,8 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-
-// Seus outros imports...
 import 'package:datingapp/screens/match/match_screen.dart';
 import 'package:datingapp/screens/profile/widgets/name_input_fields.dart';
 import 'package:datingapp/screens/profile/widgets/birth_date_picker.dart';
@@ -35,13 +33,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<String> selectedInterests = [];
   bool _isLoading = false;
 
-  // ⭐ 2. VARIÁVEL DE ESTADO PARA O ARQUIVO DE IMAGEM
-  File? _profileImageFile; // Armazena a imagem, seja ela recém-tirada ou carregada do disco
+  File? _profileImageFile; // Armazena a imagem
 
   @override
   void initState() {
     super.initState();
-    // Carrega os dados de texto do formulário (se estiver editando)
+    // Carrega os dados de texto do formulário
     _loadTextFields();
     // Carrega a imagem de perfil salva localmente
     _loadProfileImage();
@@ -62,7 +59,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // ⭐ 3. NOVA FUNÇÃO PARA CARREGAR A IMAGEM DO ARMAZENAMENTO LOCAL
+  // Função para carregar a imagem local
   Future<void> _loadProfileImage() async {
     final prefs = await SharedPreferences.getInstance();
     // Busca o caminho da imagem que salvamos anteriormente
@@ -74,7 +71,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Função para abrir a câmera (continua igual)
+  // Função para abrir a câmera
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedImage = await picker.pickImage(
@@ -88,7 +85,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
   
-  // ⭐ 4. FUNÇÃO DE SUBMISSÃO ATUALIZADA PARA O ARMAZENAMENTO LOCAL
   Future<void> _submitForm() async {
     final isFormValid = _formKey.currentState?.validate() ?? false;
     if (!isFormValid || selectedDate == null || selectedOrientation == null || selectedInterests.isEmpty) {
@@ -119,7 +115,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await prefs.setString('profile_image_path', savedImagePath);
       }
       
-      // Monta os dados para o Firestore (SEM A IMAGEM)
+      // Monta os dados para o Firestore
       final userDataToSave = {
         'uid': user.uid,
         'email': user.email,
@@ -134,7 +130,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await FirebaseFirestore.instance.collection('users').doc(user.uid).set(userDataToSave, SetOptions(merge: true));
       
       if (!mounted) return;
-      // ... (lógica de navegação e snackbar continua a mesma)
       final successMessage = widget.userData != null ? 'Perfil atualizado!' : 'Perfil criado!';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(successMessage), backgroundColor: Colors.green));
       if (widget.userData != null) {
@@ -171,15 +166,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+                  child: const SizedBox(height: 10),
                 ),
                 const Text("Seu perfil", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-
-                // ⭐ 5. WIDGET DA FOTO ATUALIZADO PARA CARREGAR IMAGEM LOCAL
                 GestureDetector(
                   onTap: _pickImage,
                   child: CircleAvatar(
@@ -194,7 +184,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // O resto do seu layout continua aqui
                 NameInputFields(
                   firstNameController: firstNameController,
                   lastNameController: lastNameController,

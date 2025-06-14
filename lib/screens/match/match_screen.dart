@@ -109,7 +109,7 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
       case 'right': // Ação de Like/Match
         endOffset = Offset(size.width, 0);
         icon = 'star';
-        _notificationService.showNotification('Match Registrado!', 'Você curtiu um novo perfil.');
+        _notificationService.showNotification('Novo Match! 💘', 'Uau, você acabou de registrar um Match!');
         final likedUserId = users[_currentIndex]['uid']!;
         _registerLike(likedUserId);
         break;
@@ -140,10 +140,7 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
                 children: [
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back_ios),
-                      onPressed: () => Navigator.pop(context),
-                    ),
+                    child: const SizedBox(height: 10),
                   ),
                   const Column(
                     children: [

@@ -96,6 +96,10 @@ class _IndividualChatScreenState extends State<IndividualChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         backgroundColor: const Color(0xFFE94057),
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 1,
