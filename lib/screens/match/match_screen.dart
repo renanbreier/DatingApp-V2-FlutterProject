@@ -61,7 +61,7 @@ class _MatchScreenState extends State<MatchScreen> with SingleTickerProviderStat
       final int maxAge = prefs?['maxAge'] ?? 70;
 
       // Busca APENAS os 4 perfis pré-definidos no Firestore
-      const List<String> userIdsToFetch = [ 'user_1_id', 'user_2_id', 'user_3_id', 'user_4_id' ];
+      const List<String> userIdsToFetch = [ 'user_1_id', 'user_2_id', 'user_3_id', 'user_4_id', 'user_5_id', 'user_6_id'];
       final usersQuery = await FirebaseFirestore.instance
           .collection('users')
           .where(FieldPath.documentId, whereIn: userIdsToFetch)
