@@ -1,6 +1,5 @@
 import java.util.Properties
 
-// Bloco para ler as propriedades do Flutter
 val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
@@ -14,9 +13,7 @@ val flutterVersionName = localProperties.getProperty("flutter.versionName")
 
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
     id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -30,7 +27,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
-        // <<< CORREÇÃO 1: Habilitar o Core Library Desugaring
         isCoreLibraryDesugaringEnabled = true
     }
 
@@ -49,13 +45,16 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
+            
+            // Habilita a otimização de código para release
+            isMinifyEnabled = true
+            // Aponta para o arquivo que terá as regras de excessão
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }
 
-// Bloco de dependências que pode estar faltando no seu arquivo
 dependencies {
-    // <<< CORREÇÃO 2: Adicionar a dependência do Desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 }
 
