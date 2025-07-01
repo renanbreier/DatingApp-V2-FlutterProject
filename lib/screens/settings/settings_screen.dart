@@ -2,10 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:datingapp/screens/login/login_screen.dart';
 import 'package:datingapp/screens/preferences/preferences_screen.dart';
-import 'package:datingapp/screens/profile/profile_screen.dart'; // Importe a ProfileScreen
+import 'package:datingapp/screens/profile/profile_screen.dart';
 import 'package:flutter/material.dart';
 
-// Convertido para StatefulWidget para gerenciar a lógica dos botões
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -14,7 +13,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // Lista de botões atualizada
   final List<Map<String, dynamic>> settings = const [
     {'icon': Icons.person_outline, 'label': 'Perfil'},
     {'icon': Icons.room_preferences, 'label': 'Preferências'},
@@ -22,7 +20,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     {'icon': Icons.language, 'label': 'Idioma'},
     {'icon': Icons.palette_outlined, 'label': 'Tema'},
     {'icon': Icons.help_outline, 'label': 'Ajuda'},
-    // Botão "Sobre" substituído por "Excluir Conta"
     {'icon': Icons.delete_forever, 'label': 'Excluir Conta', 'isDelete': true},
     {'icon': Icons.logout, 'label': 'Sair', 'isLogout': true},
   ];
